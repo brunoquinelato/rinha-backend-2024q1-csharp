@@ -399,3 +399,5 @@ FodyWeavers.xsd
 
 
 load-test/results/*
+*load-test/results/*
+*/load-test/results/*
