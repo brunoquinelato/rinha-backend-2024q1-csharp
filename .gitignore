@@ -398,6 +398,6 @@ FodyWeavers.xsd
 *.sln.iml
 
 
-load-test/results/*
-*load-test/results/*
-*/load-test/results/*
+load-test/user-files/results/*
+*load-test/user-files/results/*
+*/load-test/user-files/results/*
