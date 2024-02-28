@@ -17,7 +17,7 @@ public class CustomerRepository
         _customersCache = customersCache;
     }
 
-    public async Task<Customer> GetCustomerFromCacheAsync(int customerId)
+    public async Task<Customer?> GetCustomerFromCacheAsync(int customerId)
     {
         if (!_customersCache.TryGetValue("customersCache", out ICollection<Customer>? customers))
         {
@@ -25,18 +25,7 @@ public class CustomerRepository
             _customersCache.Set("customersCache", customers, TimeSpan.FromHours(24));
         }
 
-        return customers!.Single(c => c.Id == customerId);
-    }
-
-    public async Task<bool> CustomerExistsByIdAsync(int customerId)
-    {
-        if (!_customersCache.TryGetValue("customersCache", out ICollection<Customer>? customers))
-        {
-            customers = await GetAllCustomersAsync();
-            _customersCache.Set("customersCache", customers, TimeSpan.FromHours(24));
-        }
-
-        return customers is not null && customers.Any(c => c.Id == customerId);
+        return customers!.SingleOrDefault(c => c.Id == customerId);
     }
 
     public async Task<ICollection<Customer>> GetAllCustomersAsync()
@@ -64,7 +53,7 @@ public class CustomerRepository
         return customers;
     }
 
-    public async Task<Customer?> GetCustomerByIdAsync(int customerId)
+    public async Task<int?> GetCustomerBalanceByIdAsync(int customerId)
     {
         using var _dbConnection = new NpgsqlConnection(_configuration.GetConnectionString("DbConnection"));
         await _dbConnection.OpenAsync();
@@ -73,10 +62,7 @@ public class CustomerRepository
             Connection = _dbConnection,
             CommandText = @"
                 SELECT 
-                    id,
-                    limit_amount, 
-                    balance, 
-                    modified_at 
+                    balance 
                 FROM customers WHERE Id = @Id"
         };
         command.Parameters.AddWithValue("@Id", customerId);
@@ -85,18 +71,14 @@ public class CustomerRepository
         if (!await reader.ReadAsync())
             return null;
 
-        return new Customer(
-            reader.GetInt32(0),
-            reader.GetInt32(1),
-            reader.GetInt32(2),
-            reader.GetDateTime(3),
-            reader.GetInt32(2));
+        return reader.GetInt32(0);
     }
 
-    public async Task<bool> UpdateAsync(Customer customer)
+    public async Task<int?> UpdateBalanceAsync(int customerId, int amount)
     {
         using var _dbConnection = new NpgsqlConnection(_configuration.GetConnectionString("DbConnection"));
         await _dbConnection.OpenAsync();
+
         var command = new NpgsqlCommand
         {
             Connection = _dbConnection,
@@ -104,19 +86,16 @@ public class CustomerRepository
                 UPDATE 
                     customers
                 SET
-                    balance = @balance, 
-                    modified_at = @new_modified_at                
+                    balance = balance + @transaction_amount            
                 WHERE 
-                    Id = @id AND 
-                    modified_at = @modified_at "
+                    id = @customer_id AND 
+                    limit_amount >= (balance + @transaction_amount) * -1
+                RETURNING balance as new_balance "
         };
-        command.Parameters.AddWithValue("@id", customer.Id);
-        command.Parameters.AddWithValue("@balance", customer.Balance);
-        command.Parameters.AddWithValue("@new_modified_at", DateTime.UtcNow);
-        command.Parameters.AddWithValue("@modified_at", customer.ModifiedAt);
-        // command.Parameters.AddWithValue("@original_balance", customer.OriginalBalance);
 
-        var rowsAffected = await command.ExecuteNonQueryAsync();
-        return rowsAffected != 0;
+        command.Parameters.AddWithValue("@customer_id", customerId);
+        command.Parameters.AddWithValue("@transaction_amount", amount);
+
+        return (int?)await command.ExecuteScalarAsync();
     }
 }

@@ -1,4 +1,3 @@
-using Entities;
 using Repositories;
 
 namespace Endpoints.Transaction;
@@ -20,7 +19,8 @@ public class TransactionHandler
         if (!request.IsValid())
             return Results.UnprocessableEntity("invalid parameters.");
 
-        if (!await _customerRepository.CustomerExistsByIdAsync(customerId))
+        var customer = await _customerRepository.GetCustomerFromCacheAsync(customerId);
+        if (customer is null)
             return Results.NotFound("customer not found.");
 
         var transaction = new Entities.Transaction(
@@ -30,25 +30,19 @@ public class TransactionHandler
             request.Description,
             DateTime.UtcNow);
 
-        Customer? customer;
-        while (true)
-        {
-            customer = await _customerRepository.GetCustomerByIdAsync(customerId);
-            if (!customer!.HasEnoughBalance(transaction))
-                return Results.UnprocessableEntity("inconsistence balance.");
+        var updatedBalance = await _customerRepository
+            .UpdateBalanceAsync(
+                customerId,
+                transaction.IsDepositTransaction() ? transaction.GetDepositAmount() : transaction.Amount);
 
-            customer.UpdateBalance(transaction);
-            var succeeded = await _customerRepository.UpdateAsync(customer);
-            if (succeeded)
-                break;
-        }
+        if (!updatedBalance.HasValue)
+            return Results.UnprocessableEntity("inconsistence balance.");
 
-        transaction.CurrentBalance = customer.Balance;
         _ = await _transactionRepository.InsertAsync(transaction);
-        return Results.Ok(new
+        return Results.Ok(new TransactionResponse
         {
-            limite = customer!.Limit,
-            saldo = customer!.Balance
+            LimitAmount = customer.Limit,
+            Balance = updatedBalance.Value
         });
     }
 }

@@ -8,7 +8,7 @@ services:
       context: ./api
     hostname: api01
     environment:
-      - CUSTOMCONNSTR_DbConnection=Server=db;Username=admin;Database=db_transactions;Port=5432;Password=admin;;Pooling=true;Minimum Pool Size=50;Maximum Pool Size=2000;Multiplexing=true;Timeout=15;Command Timeout=15;Cancellation Timeout=-1;No Reset On Close=true;Max Auto Prepare=20;Auto Prepare Min Usages=1;
+      - CUSTOMCONNSTR_DbConnection=Server=db;Username=admin;Database=db_transactions;Port=5432;Password=admin;;Pooling=true;Minimum Pool Size=50;Maximum Pool Size=2000;Multiplexing=true;Timeout=15;Command Timeout=15;
     ports:
       - "8081:8080"
     depends_on:
@@ -16,14 +16,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "145MB"      
+          cpus: "0.3"
+          memory: "135MB"      
 
   api02:
     <<: *api
     hostname: api02
     environment:
-      - CUSTOMCONNSTR_DbConnection=Server=db;Username=admin;Database=db_transactions;Port=5432;Password=admin;;Pooling=true;Minimum Pool Size=50;Maximum Pool Size=2000;Multiplexing=true;Timeout=15;Command Timeout=15;Cancellation Timeout=-1;No Reset On Close=true;Max Auto Prepare=20;Auto Prepare Min Usages=1;
+      - CUSTOMCONNSTR_DbConnection=Server=db;Username=admin;Database=db_transactions;Port=5432;Password=admin;;Pooling=true;Minimum Pool Size=50;Maximum Pool Size=2000;Multiplexing=true;Timeout=15;Command Timeout=15;
     ports:
       - "8082:8080"
     depends_on:
@@ -31,8 +31,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "145MB"
+          cpus: "0.3"
+          memory: "135MB"
 
   nginx:
     image: nginx:latest
@@ -46,16 +46,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: "10MB"
+          cpus: "0.3"
+          memory: "50MB"
 
   db:
     image: 'postgres:latest'
-    container_name: db-transactions
-    # network_mode: host
-    command: 'postgres -c max_connections=300 -c shared_buffers=96MB -c checkpoint_timeout=600 -c synchronous_commit=off -c fsync=off -c full_page_writes=off -c work_mem=16MB'
-    hostname: db
-    # restart: always    
+    container_name: db-transactions    
+    command: 'postgres -c max_connections=300 -c checkpoint_timeout=600 -c full_page_writes=off'
+    hostname: db    
     environment:
       - POSTGRES_DB=db_transactions
       - POSTGRES_USER=admin
@@ -68,8 +66,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "250MB"  
+          cpus: "0.6"
+          memory: "230MB"  
 
 networks:
   default:

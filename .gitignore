@@ -397,7 +397,7 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-
+*.DS_Store
 load-test/user-files/results/*
 *load-test/user-files/results/*
 */load-test/user-files/results/*

@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Endpoints.Transaction;
 
-public class TransactionRequest
+public sealed record TransactionRequest
 {
     [JsonPropertyName("valor")]
     public object? RawAmount { get; set; }
@@ -16,7 +16,7 @@ public class TransactionRequest
 
     public bool IsValid()
     {
-        var validAmount = int.TryParse(RawAmount?.ToString(), out int convertedAmount); 
+        var validAmount = int.TryParse(RawAmount?.ToString(), out int convertedAmount);
         Amount = convertedAmount;
 
         return

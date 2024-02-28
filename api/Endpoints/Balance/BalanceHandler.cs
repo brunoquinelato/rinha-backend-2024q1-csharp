@@ -17,28 +17,28 @@ public class BalanceHandler
 
     public async Task<IResult> HandleAsync(int customerId)
     {
-        if (!await _customerRepository.CustomerExistsByIdAsync(customerId))
+        var customer = await _customerRepository.GetCustomerFromCacheAsync(customerId);
+        if (customer is null)
             return Results.NotFound("customer not found.");
         
-        var customer = await _customerRepository.GetCustomerFromCacheAsync(customerId);
-
+        var balance = await _customerRepository.GetCustomerBalanceByIdAsync(customerId);
         var transactions = await _transactionRepository
             .GetLastTransactionsByCustomerId(customerId);
 
-        return Results.Ok(new
+        return Results.Ok(new BalanceResponse
         {
-            saldo = new
+            Balance = new BalanceAmountResponse
             {
-                total = transactions?.FirstOrDefault()?.CurrentBalance ?? customer.Balance,
-                data_extrato = DateTime.UtcNow,
-                limite = customer?.Limit
+                Balance = balance ?? default,
+                BalanceDate = DateTime.UtcNow,
+                LimitAmount = customer!.Limit
             },
-            ultimas_transacoes = transactions?.Select(p => new
+            LastTransactions = transactions?.Select(p => new BalanceTransactionResponse
             {
-                valor = p.Amount,
-                tipo = p.Type,
-                descricao = p.Description,
-                realizada_em = p.CreatedAt
+                Amount = p.Amount,
+                Type = p.Type,
+                Description = p.Description,
+                CreatedAt = p.CreatedAt
             })
         });
     }

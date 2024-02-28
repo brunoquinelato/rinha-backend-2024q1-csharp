@@ -44,7 +44,7 @@ public class TransactionRepository
         command.Parameters.AddWithValue("@amount", transaction.Amount);
         command.Parameters.AddWithValue("@description", transaction.Description);
         command.Parameters.AddWithValue("@created_at", transaction.CreatedAt);
-
+        
         var rowsAffected = await command.ExecuteNonQueryAsync();
         return rowsAffected > 0;
     }
@@ -61,8 +61,7 @@ public class TransactionRepository
                     type, 
                     amount, 
                     description, 
-                    created_at,
-                    current_balance
+                    created_at
                 FROM 
                     transactions 
                 WHERE customer_id = @customer_id
@@ -78,11 +77,11 @@ public class TransactionRepository
         {
             transactions.Add(new Transaction
             (
-                customerId: customerId,
-                type: reader.GetChar(0),
-                amount: reader.GetInt32(1),
-                description: reader.GetString(2),
-                createdAt: reader.GetDateTime(3)
+                customerId,
+                reader.GetInt32(1),
+                reader.GetChar(0),
+                reader.GetString(2),
+                reader.GetDateTime(3)
             ));
         }
 
