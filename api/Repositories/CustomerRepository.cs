@@ -4,18 +4,41 @@ using Npgsql;
 
 namespace Repositories;
 
-public class CustomerRepository
+public class CustomerRepository(
+    NpgsqlConnection dbConnection,
+    IMemoryCache customersCache) : BaseRepository(dbConnection)
 {
-    private readonly IConfiguration _configuration;
-    private readonly IMemoryCache _customersCache;
-
-    public CustomerRepository(
-        IConfiguration configuration,
-        IMemoryCache customersCache)
+    private static readonly NpgsqlCommand UpdateBalanceCommand = new()
     {
-        _configuration = configuration;        
-        _customersCache = customersCache;
-    }
+        CommandText = @"
+            UPDATE 
+                customers
+            SET
+                balance = balance + @transaction_amount            
+            WHERE 
+                id = @customer_id AND 
+                limit_amount >= (balance + @transaction_amount) * -1
+            RETURNING balance as new_balance ",
+        Parameters =
+        {
+            new NpgsqlParameter("@customer_id", NpgsqlTypes.NpgsqlDbType.Integer),
+            new NpgsqlParameter("@transaction_amount", NpgsqlTypes.NpgsqlDbType.Integer)
+        }
+    };
+
+    private static readonly NpgsqlCommand GetBalanceCommand = new()
+    {
+        CommandText = @"
+            SELECT 
+                balance 
+            FROM customers WHERE id = @customer_id",
+        Parameters =
+        {
+            new NpgsqlParameter("@customer_id", NpgsqlTypes.NpgsqlDbType.Integer)
+        }
+    };
+
+    private readonly IMemoryCache _customersCache = customersCache;
 
     public async Task<Customer?> GetCustomerFromCacheAsync(int customerId)
     {
@@ -28,10 +51,9 @@ public class CustomerRepository
         return customers!.SingleOrDefault(c => c.Id == customerId);
     }
 
-    public async Task<ICollection<Customer>> GetAllCustomersAsync()
+    private async Task<ICollection<Customer>> GetAllCustomersAsync()
     {
-        using var _dbConnection = new NpgsqlConnection(_configuration.GetConnectionString("DbConnection"));
-        await _dbConnection.OpenAsync();
+        await OpenConnectionAsync();
         var command = new NpgsqlCommand
         {
             Connection = _dbConnection,
@@ -55,17 +77,10 @@ public class CustomerRepository
 
     public async Task<int?> GetCustomerBalanceByIdAsync(int customerId)
     {
-        using var _dbConnection = new NpgsqlConnection(_configuration.GetConnectionString("DbConnection"));
-        await _dbConnection.OpenAsync();
-        var command = new NpgsqlCommand
-        {
-            Connection = _dbConnection,
-            CommandText = @"
-                SELECT 
-                    balance 
-                FROM customers WHERE Id = @Id"
-        };
-        command.Parameters.AddWithValue("@Id", customerId);
+        await OpenConnectionAsync();
+        var command = GetBalanceCommand.Clone();
+        command.Connection = _dbConnection;
+        command.Parameters["@customer_id"].Value = customerId;
 
         using var reader = await command.ExecuteReaderAsync();
         if (!await reader.ReadAsync())
@@ -76,25 +91,11 @@ public class CustomerRepository
 
     public async Task<int?> UpdateBalanceAsync(int customerId, int amount)
     {
-        using var _dbConnection = new NpgsqlConnection(_configuration.GetConnectionString("DbConnection"));
-        await _dbConnection.OpenAsync();
-
-        var command = new NpgsqlCommand
-        {
-            Connection = _dbConnection,
-            CommandText = @"
-                UPDATE 
-                    customers
-                SET
-                    balance = balance + @transaction_amount            
-                WHERE 
-                    id = @customer_id AND 
-                    limit_amount >= (balance + @transaction_amount) * -1
-                RETURNING balance as new_balance "
-        };
-
-        command.Parameters.AddWithValue("@customer_id", customerId);
-        command.Parameters.AddWithValue("@transaction_amount", amount);
+        await OpenConnectionAsync();
+        var command = UpdateBalanceCommand.Clone();
+        command.Connection = _dbConnection;
+        command.Parameters["@customer_id"].Value = customerId;
+        command.Parameters["@transaction_amount"].Value = amount;
 
         return (int?)await command.ExecuteScalarAsync();
     }

@@ -1,9 +1,11 @@
 using Endpoints.Balance;
 using Endpoints.Transaction;
 using Helpers;
+using Npgsql;
 using Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped<NpgsqlConnection>((sp) => new NpgsqlConnection(builder.Configuration.GetConnectionString("DbConnection")));
 builder.Services.AddScoped<CustomerRepository>();
 builder.Services.AddScoped<TransactionRepository>();
 builder.Services.AddScoped<BalanceHandler>();
